@@ -1,6 +1,6 @@
-# ARCHANGEL-7 AMITY Integration
+# ARCHANGEL-8 AMITY Integration
 
-Full Sensory AI with Persistent Memory - A refactored implementation featuring better error handling, memory management, and thread safety.
+Full Sensory AI with Persistent Memory - A refactored implementation featuring Episodic Memory (Amity integration), better error handling, memory management, and thread safety.
 
 ## Overview
 
@@ -12,14 +12,28 @@ This project provides a comprehensive sensory data capture and processing system
 - **Ring buffer** for efficient telemetry data management
 - **Configurable sensory profiles** for flexible sensor integration
 
+## New in this release
+
+### Amity integration (ARCHANGEL-8)
+
+This release adds an Amity integration module (amity_integration.py) that provides:
+
+- EpisodicMemory dataclass for timestamped human moments (notes, conversations, art, milestones)
+- SessionState with thread-safe deques for sensory and episodic storage
+- Atomic JSON persistence and a periodic background saver
+- Helpers: add_sensor_reading, add_episode, daily_recall
+- RingBuffer improvements and defensive (de)serialization
+
+File: `amity_integration.py` — see the repository root for the new module.
+
 ## Features
 
 ### 🔧 Core Components
 
 - **RingBuffer**: Thread-safe circular buffer for high-frequency telemetry
 - **SensorReading**: Structured sensor data with metadata
-- **SessionState**: Persistent session management with memory serialization
-- **PersistentMemoryCore**: Atomic file operations with backup/restore
+- **SessionState**: Persistent session management with memory serialization and episodic memory
+- **PersistentMemoryCore**: Atomic file operations with backup/restore (older releases)
 - **SensoryEngine**: High-frequency data capture and sweep operations
 
 ### 🚀 Key Capabilities
@@ -65,6 +79,20 @@ stats = engine.sweep(
 print(stats)
 ```
 
+### Amity integration example
+
+```python
+from amity_integration import SessionState, SensorReading, EpisodicMemory
+import time
+
+state = SessionState()
+state.add_sensor_reading(SensorReading(time.time(), "A", 1.0, 0.5, 22.1))
+state.add_episode(EpisodicMemory(time.time(), "note", {"note": "hello from Amity"}))
+state.save_to_file("session_state.json")
+loaded = SessionState.load_from_file("session_state.json")
+print("Loaded samples:", len(loaded.sensory_samples))
+```
+
 ### Capture Single Reading
 
 ```python
@@ -90,7 +118,7 @@ print(f"Buffer contents: {buffer_data}")
 
 ### Memory Management
 
-- Sessions are persisted to `vanguard_link_memory.json`
+- Sessions are persisted to `vanguard_link_memory.json` (or the path you configure)
 - Atomic writes with backup file strategy
 - Automatic recovery on load failure
 - Deque with fixed size limit (1000 samples) to prevent unbounded growth
@@ -154,6 +182,7 @@ Logging is configured at INFO level with timestamps. Key log messages:
 ```
 remade-code/
 ├── main.py           # Main implementation
+├── amity_integration.py # Amity integration (episodic memory + session state)
 ├── LICENSE           # Apache 2.0 License
 └── README.md         # This file
 ```
@@ -166,6 +195,7 @@ The system automatically saves:
 - Pilot signature
 - Session timestamps
 - All sensory samples
+- Episodic memories (notes, conversations, milestones)
 - Sample count and metrics
 - Buffer overflow counters
 
@@ -205,5 +235,5 @@ Created by **Renkasha**
 ---
 
 **Status**: Active Development  
-**Version**: 1.0.0  
-**Last Updated**: 2026
+**Version**: 1.1.0  
+**Last Updated**: 2026-07-31  
