@@ -17,6 +17,10 @@ Recent changes (v1.2.1)
 - Orchestrator8 now uses a reentrant lock to protect internal state (last_venous, throttle_flag, etc.) and catches artery ingestion exceptions so a single failing artery won't crash distribution
 - Improved robustness on save/load and clarified overflow counting behavior
 
+Hotfixes applied after initial release
+- Orchestrator8.distribute now calls artery.ingest() outside the Orchestrator lock to avoid potential deadlocks and reduce contention; last_venous is updated under a short critical section.
+- SensoryArtery buffer_pressure computation now guards against division-by-zero.
+
 Quick start
 
 1. Install (pure Python module — no external deps):
