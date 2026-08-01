@@ -214,7 +214,7 @@ class SensoryArtery(SectorInterface):
             )
             self.sm.add_sensor_reading(reading)
             self.sm.telemetry_buffer.push(reading.wave)
-        pressure = self.sm.telemetry_buffer.size() / self.sm.telemetry_buffer.capacity
+        pressure = self.sm.telemetry_buffer.size() / max(1, self.sm.telemetry_buffer.capacity)
         return VenousReturn("sensory", {"buffer_pressure": pressure})
 
 
@@ -272,17 +272,17 @@ class Orchestrator8:
 
     def distribute(self, packet: CirculatoryPacket):
         venous = []
-        # lock while updating last_venous
+        # Call artery.ingest without holding Orchestrator lock to avoid deadlocks
+        for artery in self.arteries.values():
+            try:
+                ret = artery.ingest(packet)
+            except Exception:
+                logger.exception("Artery %s failed to ingest packet", getattr(artery, 'name', 'unknown'))
+                ret = None
+            if ret:
+                venous.append(ret)
+        # Update last_venous in a short critical section
         with self._lock:
-            for artery in self.arteries.values():
-                try:
-                    ret = artery.ingest(packet)
-                except Exception:
-                    # don't let a single artery crash the heart
-                    logger.exception("Artery %s failed to ingest packet", getattr(artery, 'name', 'unknown'))
-                    ret = None
-                if ret:
-                    venous.append(ret)
             self.last_venous = {v.sector: v for v in venous}
 
     def adjust(self):
@@ -311,21 +311,21 @@ class Orchestrator8:
                 self.consolidation_urgency = mem.metrics.get("consolidation_pulse", 0)
 
     def heartbeat(self, payload: Dict[str, Any], origin: str, priority: int = 0):
-        # Acquire lock to ensure consistent check/update of throttle/venous state.
+        # Check throttle flag under lock but avoid holding the lock during ingestion
         with self._lock:
-            # If throttling, drop or reduce non-critical beats.
-            if self.throttle_flag and priority < 5:
-                logger.debug("Throttling non-critical beat from %s", origin)
-                # Option A: drop (existing behavior) - keep drop to avoid heavy load.
-                return
+            throttling = self.throttle_flag
+        if throttling and priority < 5:
+            logger.debug("Throttling non-critical beat from %s", origin)
+            return
 
-            pulse = self.contract(payload, origin, priority)
-            if not pulse.is_fresh():
-                logger.debug("Packet stale or depleted - dropping beat from %s", origin)
-                return
-            # distribute and then adjust (both protected by the same lock)
-            self.distribute(pulse)
-            self.adjust()
+        pulse = self.contract(payload, origin, priority)
+        if not pulse.is_fresh():
+            logger.debug("Packet stale or depleted - dropping beat from %s", origin)
+            return
+        # distribute (ingestion happens without long-held orchestrator lock)
+        self.distribute(pulse)
+        # adjust will acquire lock briefly
+        self.adjust()
 
 
 # ===== SESSION MANAGER =====
