@@ -64,3 +64,9 @@ Contributing
 
 License
 - (Add your preferred license here)
+
+---
+
+**Status**: Active Development  
+**Version**: 1.2.1  
+**Last Updated**: 2026-08-01  
